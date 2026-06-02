@@ -1,0 +1,117 @@
+const openAIAPIKey = process.env.OPENAI_API_KEY;
+
+if (!openAIAPIKey) {
+  throw new Error("OPENAI_API_KEY is not configured.");
+}
+
+const transcribeModel = process.env.OPENAI_TRANSCRIBE_MODEL ?? "gpt-4o-transcribe";
+const textModel = process.env.OPENAI_TEXT_MODEL ?? "gpt-5.2";
+
+export async function transcribeAudio(audio: File) {
+  const form = new FormData();
+  form.set("model", transcribeModel);
+  form.set("language", "zh");
+  form.set("response_format", "json");
+  form.set("file", audio);
+
+  const response = await fetch("https://api.openai.com/v1/audio/transcriptions", {
+    method: "POST",
+    headers: {
+      Authorization: `Bearer ${openAIAPIKey}`
+    },
+    body: form
+  });
+
+  const payload = await response.json();
+  if (!response.ok) {
+    throw new Error(payload?.error?.message ?? "OpenAI 语音识别失败。");
+  }
+
+  return String(payload.text ?? "").trim();
+}
+
+export async function extractTargetText(transcript: string) {
+  const response = await fetch("https://api.openai.com/v1/responses", {
+    method: "POST",
+    headers: {
+      Authorization: `Bearer ${openAIAPIKey}`,
+      "Content-Type": "application/json"
+    },
+    body: JSON.stringify({
+      model: textModel,
+      reasoning: { effort: "none" },
+      input: [
+        {
+          role: "system",
+          content: [
+            {
+              type: "input_text",
+              text:
+                "你是儿童中文书写 app 的文本提取器。只提取用户真正想学习书写的中文内容，不要包含“怎么写”“我想学”“请问”等询问语。只输出符合 schema 的 JSON。"
+            }
+          ]
+        },
+        {
+          role: "user",
+          content: [{ type: "input_text", text: transcript }]
+        }
+      ],
+      text: {
+        format: {
+          type: "json_schema",
+          name: "learning_text_extraction",
+          strict: true,
+          schema: {
+            type: "object",
+            additionalProperties: false,
+            properties: {
+              target_text: {
+                type: "string",
+                description: "用户真正想显示并学习书写的中文，可以是一个字、词语或一句话。"
+              }
+            },
+            required: ["target_text"]
+          }
+        }
+      }
+    })
+  });
+
+  const payload = await response.json();
+  if (!response.ok) {
+    throw new Error(payload?.error?.message ?? "OpenAI 文本提取失败。");
+  }
+
+  const outputText = findOutputText(payload);
+  if (!outputText) {
+    throw new Error("OpenAI 响应中没有找到可解析的文本。");
+  }
+
+  const parsed = JSON.parse(outputText) as { target_text?: string };
+  return String(parsed.target_text ?? "").trim();
+}
+
+function findOutputText(value: unknown): string | undefined {
+  if (!value) return undefined;
+  if (Array.isArray(value)) {
+    for (const item of value) {
+      const text = findOutputText(item);
+      if (text) return text;
+    }
+    return undefined;
+  }
+  if (typeof value === "object") {
+    const record = value as Record<string, unknown>;
+    if (record.type === "output_text" && typeof record.text === "string") {
+      return record.text;
+    }
+    if (typeof record.output_text === "string") {
+      return record.output_text;
+    }
+    for (const item of Object.values(record)) {
+      const text = findOutputText(item);
+      if (text) return text;
+    }
+  }
+  return undefined;
+}
