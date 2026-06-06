@@ -1,14 +1,24 @@
 import { NextResponse } from "next/server";
 import { extractTargetText, transcribeAudio } from "@/lib/openai";
-import { deviceIDFromHeaders, getOrCreateUser, recordUsage } from "@/lib/users";
+import {
+  UserFacingError,
+  assertNotBlocked,
+  assertWithinThrottle,
+  getOrCreateUser,
+  recordUsage,
+  resolveIdentity
+} from "@/lib/users";
 
 export const runtime = "nodejs";
 export const maxDuration = 60;
 
 export async function POST(request: Request) {
   try {
-    const deviceID = deviceIDFromHeaders(request.headers);
-    const user = await getOrCreateUser(deviceID);
+    const identity = resolveIdentity(request.headers);
+    const user = await getOrCreateUser(identity);
+    await assertNotBlocked(user);
+    await assertWithinThrottle(user.id, "voice_extract");
+
     if (user.remainingCredits <= 0) {
       return NextResponse.json({ error: "免费次数已用完，请兑换 coupon 或购买更多次数。" }, { status: 402 });
     }
@@ -35,10 +45,13 @@ export async function POST(request: Request) {
     return NextResponse.json({
       transcript,
       targetText,
-      remainingCredits: updatedUser.remainingCredits
+      remainingCredits: updatedUser.remainingCredits,
+      accountType: updatedUser.accountType,
+      isVip: updatedUser.isVip
     });
   } catch (error) {
-    return NextResponse.json({ error: errorMessage(error) }, { status: 500 });
+    const status = error instanceof UserFacingError ? error.status : 500;
+    return NextResponse.json({ error: errorMessage(error) }, { status });
   }
 }
 

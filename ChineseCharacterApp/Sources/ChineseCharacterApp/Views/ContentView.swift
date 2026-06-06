@@ -1,8 +1,9 @@
 import SwiftUI
 
 struct ContentView: View {
-    @StateObject private var backendSettings = BackendSettingsStore()
     @StateObject private var deviceIdentity = DeviceIdentityStore()
+    @StateObject private var accountStore = AccountStore()
+    @StateObject private var favoriteStore = FavoriteCharacterStore()
     @StateObject private var characterStore = CharacterStore()
     @StateObject private var recorder = AudioRecorder()
     @StateObject private var speaker = MandarinSpeaker()
@@ -11,11 +12,12 @@ struct ContentView: View {
     @State private var selectedLiteral: String?
     @State private var isProcessing = false
     @State private var errorMessage: String?
-    @State private var showingSettings = false
     @State private var recordingDidStart = false
     @State private var isCancelArmed = false
     @State private var statusMessage = "按住说话，松开识别"
     @State private var remainingCredits: Int?
+    @State private var emailDraft = ""
+    @State private var didRecordInitialSession = false
 
     var body: some View {
         NavigationStack {
@@ -25,7 +27,9 @@ struct ContentView: View {
                 ScrollView {
                     VStack(alignment: .leading, spacing: 22) {
                         header
+                        accountPanel
                         recorderPanel
+                        reviewPanel
 
                         if !learningRequest.transcript.isEmpty {
                             transcriptPanel
@@ -40,20 +44,6 @@ struct ContentView: View {
                 }
             }
             .navigationTitle("中文写字")
-            .toolbar {
-                ToolbarItem(placement: .topBarTrailing) {
-                    Button {
-                        showingSettings = true
-                    } label: {
-                        Image(systemName: "server.rack")
-                    }
-                    .accessibilityLabel("设置后端")
-                }
-            }
-            .sheet(isPresented: $showingSettings) {
-                SettingsView(backendBaseURL: $backendSettings.baseURL)
-                    .presentationDetents([.medium])
-            }
             .alert("需要处理一下", isPresented: Binding(
                 get: { errorMessage != nil },
                 set: { if !$0 { errorMessage = nil } }
@@ -61,6 +51,12 @@ struct ContentView: View {
                 Button("好") { errorMessage = nil }
             } message: {
                 Text(errorMessage ?? "")
+            }
+            .onAppear {
+                emailDraft = accountStore.email
+                guard !didRecordInitialSession else { return }
+                didRecordInitialSession = true
+                Task { await refreshAccount(recordLogin: true) }
             }
         }
     }
@@ -80,6 +76,54 @@ struct ContentView: View {
             }
         }
         .frame(maxWidth: .infinity, alignment: .leading)
+    }
+
+    private var accountPanel: some View {
+        VStack(alignment: .leading, spacing: 12) {
+            HStack {
+                VStack(alignment: .leading, spacing: 4) {
+                    Text(accountStore.isRegistered ? "邮箱账号" : "Guest 模式")
+                        .font(.headline)
+                    Text(accountStore.normalizedEmail ?? "免费 10 次；注册邮箱后免费 20 次")
+                        .font(.subheadline)
+                        .foregroundStyle(.secondary)
+                }
+
+                Spacer()
+
+                if let remainingCredits {
+                    Text("\(remainingCredits) 次")
+                        .font(.headline.weight(.bold))
+                        .foregroundStyle(Color(red: 0.10, green: 0.40, blue: 0.36))
+                }
+            }
+
+            HStack(spacing: 8) {
+                TextField("输入邮箱注册", text: $emailDraft)
+                    .textInputAutocapitalization(.never)
+                    .autocorrectionDisabled()
+                    .keyboardType(.emailAddress)
+                    .textFieldStyle(.roundedBorder)
+
+                Button(accountStore.isRegistered ? "更新" : "注册") {
+                    Task { await registerEmail() }
+                }
+                .buttonStyle(.borderedProminent)
+                .tint(Color(red: 0.10, green: 0.40, blue: 0.36))
+
+                if accountStore.isRegistered {
+                    Button("Guest") {
+                        accountStore.signOutToGuest()
+                        emailDraft = ""
+                        Task { await refreshAccount(recordLogin: true) }
+                    }
+                    .buttonStyle(.bordered)
+                }
+            }
+        }
+        .padding(16)
+        .background(.white)
+        .clipShape(RoundedRectangle(cornerRadius: 8))
     }
 
     private var recorderPanel: some View {
@@ -178,6 +222,35 @@ struct ContentView: View {
         .frame(maxWidth: .infinity, alignment: .leading)
     }
 
+    @ViewBuilder
+    private var reviewPanel: some View {
+        if !favoriteStore.favorites.isEmpty {
+            VStack(alignment: .leading, spacing: 12) {
+                Text("复习收藏")
+                    .font(.headline)
+
+                ScrollView(.horizontal, showsIndicators: false) {
+                    HStack(spacing: 12) {
+                        ForEach(favoriteStore.favorites, id: \.self) { literal in
+                            Button {
+                                selectedLiteral = literal
+                                learningRequest.targetText = literal
+                                speaker.speak(literal)
+                            } label: {
+                                CharacterChoiceTile(
+                                    literal: literal,
+                                    pinyin: PinyinFormatter.pinyin(forCharacter: literal),
+                                    isSelected: selectedLiteral == literal
+                                )
+                            }
+                            .buttonStyle(.plain)
+                        }
+                    }
+                }
+            }
+        }
+    }
+
     private var characterPicker: some View {
         VStack(alignment: .leading, spacing: 12) {
             Text("选择一个字")
@@ -189,15 +262,14 @@ struct ContentView: View {
                         selectedLiteral = literal
                         speaker.speak(literal)
                     } label: {
-                        Text(literal)
-                            .font(.system(size: 34, weight: .bold))
-                            .frame(width: 64, height: 64)
-                            .background(selectedLiteral == literal ? Color(red: 0.93, green: 0.77, blue: 0.28) : .white)
-                            .foregroundStyle(Color(red: 0.12, green: 0.12, blue: 0.10))
-                            .clipShape(RoundedRectangle(cornerRadius: 8))
+                        CharacterChoiceTile(
+                            literal: literal,
+                            pinyin: PinyinFormatter.pinyin(forCharacter: literal),
+                            isSelected: selectedLiteral == literal
+                        )
                     }
                     .buttonStyle(.plain)
-                    .accessibilityLabel("学习 \(literal)")
+                    .accessibilityLabel("学习 \(literal)，拼音 \(PinyinFormatter.pinyin(forCharacter: literal))")
                 }
             }
         }
@@ -213,7 +285,7 @@ struct ContentView: View {
                     Text(info.literal)
                         .font(.system(size: 80, weight: .bold))
                     VStack(alignment: .leading, spacing: 6) {
-                        Text(info.pinyin)
+                        Text(PinyinFormatter.pinyin(forCharacter: info.literal))
                             .font(.title.weight(.semibold))
                         Text(info.pronunciationHint)
                             .font(.body)
@@ -230,6 +302,17 @@ struct ContentView: View {
                     .buttonStyle(.borderedProminent)
                     .tint(Color(red: 0.10, green: 0.40, blue: 0.36))
                     .accessibilityLabel("播放读音")
+
+                    Button {
+                        favoriteStore.toggle(info.literal)
+                    } label: {
+                        Image(systemName: favoriteStore.contains(info.literal) ? "star.fill" : "star")
+                            .font(.title2)
+                            .frame(width: 46, height: 46)
+                    }
+                    .buttonStyle(.bordered)
+                    .tint(Color(red: 0.93, green: 0.77, blue: 0.28))
+                    .accessibilityLabel(favoriteStore.contains(info.literal) ? "取消收藏" : "收藏复习")
                 }
 
                 StrokeAnimationView(character: info)
@@ -251,18 +334,34 @@ struct ContentView: View {
 
     private func beginRecording() async {
         do {
-            guard backendBaseURL() != nil else {
-                showingSettings = true
-                statusMessage = "请先填写后端地址"
-                throw BackendClientError.invalidBaseURL
-            }
-
             learningRequest = LearningRequest()
             selectedLiteral = nil
             try await recorder.start()
         } catch {
             recordingDidStart = false
             isCancelArmed = false
+            errorMessage = error.localizedDescription
+        }
+    }
+
+    private func registerEmail() async {
+        let email = emailDraft.trimmingCharacters(in: .whitespacesAndNewlines).lowercased()
+        guard email.range(of: #"^[^\s@]+@[^\s@]+\.[^\s@]+$"#, options: .regularExpression) != nil else {
+            errorMessage = "请输入有效的邮箱地址。"
+            return
+        }
+
+        accountStore.email = email
+        await refreshAccount(recordLogin: true)
+    }
+
+    private func refreshAccount(recordLogin: Bool) async {
+        do {
+            let usage = recordLogin
+                ? try await backendClient().recordSession()
+                : try await backendClient().fetchUsage()
+            remainingCredits = usage.remainingCredits
+        } catch {
             errorMessage = error.localizedDescription
         }
     }
@@ -289,18 +388,11 @@ struct ContentView: View {
     }
 
     private func processRecording(_ url: URL) async throws {
-        guard let baseURL = backendBaseURL() else {
-            showingSettings = true
-            statusMessage = "请先填写后端地址"
-            throw BackendClientError.invalidBaseURL
-        }
-
         isProcessing = true
         defer { isProcessing = false }
 
         statusMessage = "正在识别语音..."
-        let client = BackendClient(baseURL: baseURL, deviceID: deviceIdentity.deviceID)
-        let result = try await client.extractLearningText(audioURL: url)
+        let result = try await backendClient().extractLearningText(audioURL: url)
         remainingCredits = result.remainingCredits
 
         let transcript = result.transcript.trimmingCharacters(in: .whitespacesAndNewlines)
@@ -317,10 +409,12 @@ struct ContentView: View {
         statusMessage = learningRequest.characters.isEmpty ? "没有找到汉字，请再说一次" : "按住说话，松开识别"
     }
 
-    private func backendBaseURL() -> URL? {
-        let value = backendSettings.baseURL.trimmingCharacters(in: .whitespacesAndNewlines)
-        guard !value.isEmpty else { return nil }
-        return URL(string: value)
+    private func backendClient() -> BackendClient {
+        BackendClient(
+            baseURL: AppEnvironment.backendBaseURL,
+            deviceID: deviceIdentity.deviceID,
+            userEmail: accountStore.normalizedEmail
+        )
     }
 
     private func barHeight(at index: Int) -> CGFloat {
@@ -328,6 +422,31 @@ struct ContentView: View {
         let wave = 0.35 + 0.65 * abs(sin(Double(index) * 0.75))
         let activeLevel = recorder.isRecording ? max(baseline, recorder.level) : baseline
         return CGFloat(8 + 34 * min(1, activeLevel * wave))
+    }
+}
+
+private struct CharacterChoiceTile: View {
+    let literal: String
+    let pinyin: String
+    let isSelected: Bool
+
+    var body: some View {
+        VStack(spacing: 4) {
+            Text(literal)
+                .font(.system(size: 32, weight: .bold))
+                .minimumScaleFactor(0.75)
+                .lineLimit(1)
+
+            Text(pinyin)
+                .font(.caption.weight(.semibold))
+                .lineLimit(1)
+                .minimumScaleFactor(0.55)
+                .foregroundStyle(.secondary)
+        }
+        .frame(width: 72, height: 76)
+        .background(isSelected ? Color(red: 0.93, green: 0.77, blue: 0.28) : .white)
+        .foregroundStyle(Color(red: 0.12, green: 0.12, blue: 0.10))
+        .clipShape(RoundedRectangle(cornerRadius: 8))
     }
 }
 

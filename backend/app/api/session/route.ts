@@ -1,12 +1,18 @@
 import { NextResponse } from "next/server";
-import { getOrCreateUser, resolveIdentity } from "@/lib/users";
+import { recordLogin, requestGeo, resolveIdentity } from "@/lib/users";
 
 export const runtime = "nodejs";
 
-export async function GET(request: Request) {
+export async function POST(request: Request) {
   try {
     const identity = resolveIdentity(request.headers);
-    const user = await getOrCreateUser(identity);
+    const geo = requestGeo(request.headers);
+    const user = await recordLogin({
+      identity,
+      country: geo.country,
+      city: geo.city
+    });
+
     return NextResponse.json({
       email: user.email,
       accountType: user.accountType,
@@ -22,5 +28,5 @@ export async function GET(request: Request) {
 }
 
 function errorMessage(error: unknown) {
-  return error instanceof Error ? error.message : "请求失败。";
+  return error instanceof Error ? error.message : "登录失败。";
 }

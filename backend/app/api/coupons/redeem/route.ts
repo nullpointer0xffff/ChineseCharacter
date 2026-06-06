@@ -1,13 +1,13 @@
 import { NextResponse } from "next/server";
 import { sql } from "@/lib/db";
-import { deviceIDFromHeaders, getOrCreateUser } from "@/lib/users";
+import { getOrCreateUser, resolveIdentity } from "@/lib/users";
 
 export const runtime = "nodejs";
 
 export async function POST(request: Request) {
   try {
-    const deviceID = deviceIDFromHeaders(request.headers);
-    await getOrCreateUser(deviceID);
+    const identity = resolveIdentity(request.headers);
+    const user = await getOrCreateUser(identity);
 
     const body = (await request.json()) as { code?: string };
     const code = body.code?.trim().toUpperCase();
@@ -43,7 +43,7 @@ export async function POST(request: Request) {
 
       await tx`
         insert into coupon_redemptions (user_id, code, credits)
-        values (${deviceID}, ${code}, ${coupon.credits})
+        values (${user.id}, ${code}, ${coupon.credits})
       `;
       await tx`
         update coupons
@@ -53,7 +53,7 @@ export async function POST(request: Request) {
       const userRows = await tx<{ remaining_credits: number }[]>`
         update app_users
         set total_credits = total_credits + ${coupon.credits}, updated_at = now()
-        where id = ${deviceID}
+        where id = ${user.id}
         returning greatest(total_credits - used_credits, 0) as remaining_credits
       `;
 

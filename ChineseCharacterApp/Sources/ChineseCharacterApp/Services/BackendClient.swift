@@ -3,13 +3,14 @@ import Foundation
 struct BackendClient {
     var baseURL: URL
     var deviceID: String
+    var userEmail: String? = nil
     var session: URLSession = .shared
 
     func extractLearningText(audioURL: URL) async throws -> BackendExtractionResult {
         let boundary = "Boundary-\(UUID().uuidString)"
         var request = URLRequest(url: baseURL.appending(path: "/api/voice/extract"))
         request.httpMethod = "POST"
-        request.setValue(deviceID, forHTTPHeaderField: "X-Device-Id")
+        addIdentityHeaders(to: &request)
         request.setValue("multipart/form-data; boundary=\(boundary)", forHTTPHeaderField: "Content-Type")
         request.httpBody = try multipartBody(boundary: boundary, fileURL: audioURL)
 
@@ -19,10 +20,26 @@ struct BackendClient {
 
     func fetchUsage() async throws -> BackendUsage {
         var request = URLRequest(url: baseURL.appending(path: "/api/me"))
-        request.setValue(deviceID, forHTTPHeaderField: "X-Device-Id")
+        addIdentityHeaders(to: &request)
 
         let data = try await send(request)
         return try JSONDecoder().decode(BackendUsage.self, from: data)
+    }
+
+    func recordSession() async throws -> BackendUsage {
+        var request = URLRequest(url: baseURL.appending(path: "/api/session"))
+        request.httpMethod = "POST"
+        addIdentityHeaders(to: &request)
+
+        let data = try await send(request)
+        return try JSONDecoder().decode(BackendUsage.self, from: data)
+    }
+
+    private func addIdentityHeaders(to request: inout URLRequest) {
+        request.setValue(deviceID, forHTTPHeaderField: "X-Device-Id")
+        if let userEmail, !userEmail.isEmpty {
+            request.setValue(userEmail, forHTTPHeaderField: "X-User-Email")
+        }
     }
 
     private func send(_ request: URLRequest) async throws -> Data {
@@ -67,10 +84,18 @@ struct BackendExtractionResult: Decodable {
     let transcript: String
     let targetText: String
     let remainingCredits: Int
+    let accountType: String?
+    let isVip: Bool?
 }
 
 struct BackendUsage: Decodable {
+    let email: String?
+    let accountType: String?
     let remainingCredits: Int
+    let isVip: Bool?
+    let isBlocked: Bool?
+    let loginCount: Int?
+    let totalUsageCount: Int?
 }
 
 enum BackendClientError: LocalizedError {

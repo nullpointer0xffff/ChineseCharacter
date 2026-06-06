@@ -1,14 +1,21 @@
 import { getAdminSummary } from "@/lib/admin";
+import { grantCredits, updateUserFlags } from "@/app/actions";
 
 export const dynamic = "force-dynamic";
 
-export default async function AdminHome() {
-  const summary = await getAdminSummary();
+export default async function AdminHome({
+  searchParams
+}: {
+  searchParams?: Promise<{ email?: string }>;
+}) {
+  const params = await searchParams;
+  const email = params?.email ?? "";
+  const summary = await getAdminSummary({ email });
 
   return (
     <main>
       <h1>中文写字管理后台</h1>
-      <p>查看用户额度、使用量和最近识别记录。正式上线前可以继续加登录保护和运营工具。</p>
+      <p>查看用户额度、登录/使用统计、VIP/block 状态和最近识别记录。</p>
 
       <section className="grid">
         <div className="metric">
@@ -23,6 +30,78 @@ export default async function AdminHome() {
           <p>剩余额度合计</p>
           <strong>{summary.remainingCredits}</strong>
         </div>
+      </section>
+
+      <section className="panel">
+        <div className="section-heading">
+          <h2>用户管理</h2>
+          <form className="search-form">
+            <input name="email" placeholder="按邮箱搜索" defaultValue={email} />
+            <button type="submit">搜索</button>
+          </form>
+        </div>
+
+        <table>
+          <thead>
+            <tr>
+              <th>用户</th>
+              <th>额度</th>
+              <th>登录</th>
+              <th>使用</th>
+              <th>最近地点</th>
+              <th>状态</th>
+              <th>操作</th>
+            </tr>
+          </thead>
+          <tbody>
+            {summary.users.map((user) => (
+              <tr key={user.id}>
+                <td>
+                  <div>{user.email ?? "Guest"}</div>
+                  <div className="code">{user.id}</div>
+                  <div className="muted">注册：{formatDate(user.createdAt)}</div>
+                </td>
+                <td>
+                  <strong>{user.remainingCredits}</strong>
+                  <div className="muted">总 {user.totalCredits} / 已用 {user.usedCredits}</div>
+                </td>
+                <td>
+                  <strong>{user.loginCount}</strong>
+                  <div className="muted">{formatDate(user.lastLoginAt)}</div>
+                </td>
+                <td>
+                  <strong>{user.totalUsageCount}</strong>
+                  <div className="muted">{formatDate(user.lastUsedAt)}</div>
+                </td>
+                <td>{[user.lastLoginCity, user.lastLoginCountry].filter(Boolean).join(", ") || "-"}</td>
+                <td>
+                  <div className="badges">
+                    <span className={`badge ${user.accountType === "email" ? "good" : ""}`}>{user.accountType}</span>
+                    {user.isVip ? <span className="badge good">VIP</span> : null}
+                    {user.isBlocked ? <span className="badge danger">Blocked</span> : null}
+                  </div>
+                </td>
+                <td>
+                  <form action={updateUserFlags} className="inline-form">
+                    <input type="hidden" name="userID" value={user.id} />
+                    <label>
+                      <input type="checkbox" name="isVip" defaultChecked={user.isVip} /> VIP
+                    </label>
+                    <label>
+                      <input type="checkbox" name="isBlocked" defaultChecked={user.isBlocked} /> Block
+                    </label>
+                    <button type="submit">保存</button>
+                  </form>
+                  <form action={grantCredits} className="inline-form">
+                    <input type="hidden" name="userID" value={user.id} />
+                    <input name="credits" type="number" min="1" max="10000" placeholder="额度" />
+                    <button type="submit">加额度</button>
+                  </form>
+                </td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
       </section>
 
       <section className="panel">
@@ -50,4 +129,9 @@ export default async function AdminHome() {
       </section>
     </main>
   );
+}
+
+function formatDate(value: string | null) {
+  if (!value) return "-";
+  return new Date(value).toLocaleString("zh-CN");
 }

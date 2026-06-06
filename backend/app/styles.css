@@ -42,6 +42,44 @@ p {
   margin: 24px 0;
 }
 
+.section-heading {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  margin-bottom: 8px;
+}
+
+.section-heading h2 {
+  margin: 0;
+}
+
+.search-form,
+.inline-form {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+input:not([type="checkbox"]) {
+  min-height: 34px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  padding: 6px 10px;
+  background: white;
+}
+
+button {
+  min-height: 34px;
+  border: 0;
+  border-radius: 8px;
+  padding: 6px 12px;
+  background: var(--accent);
+  color: white;
+  font-weight: 700;
+  cursor: pointer;
+}
+
 .metric,
 .panel {
   background: var(--panel);
@@ -78,6 +116,51 @@ th {
 
 .code {
   font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+  font-size: 12px;
+}
+
+.muted {
+  color: var(--muted);
+  font-size: 12px;
+  margin-top: 4px;
+}
+
+.badges {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+.badge {
+  display: inline-flex;
+  align-items: center;
+  border-radius: 999px;
+  background: #f1efe5;
+  color: var(--muted);
+  font-size: 12px;
+  font-weight: 700;
+  padding: 4px 8px;
+}
+
+.badge.good {
+  background: #dceee9;
+  color: #176156;
+}
+
+.badge.danger {
+  background: #f7d6d0;
+  color: #a82a1d;
+}
+
+.inline-form {
+  margin: 0 0 8px;
+}
+
+.inline-form label {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  color: var(--muted);
   font-size: 12px;
 }
 
