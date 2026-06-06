@@ -1,9 +1,9 @@
 import SwiftUI
 
 struct ContentView: View {
-    @StateObject private var deviceIdentity = DeviceIdentityStore()
-    @StateObject private var accountStore = AccountStore()
-    @StateObject private var favoriteStore = FavoriteCharacterStore()
+    @ObservedObject var deviceIdentity: DeviceIdentityStore
+    @ObservedObject var accountStore: AccountStore
+    @ObservedObject var favoriteStore: FavoriteCharacterStore
     @StateObject private var characterStore = CharacterStore()
     @StateObject private var recorder = AudioRecorder()
     @StateObject private var speaker = MandarinSpeaker()
@@ -16,7 +16,6 @@ struct ContentView: View {
     @State private var isCancelArmed = false
     @State private var statusMessage = "按住说话，松开识别"
     @State private var remainingCredits: Int?
-    @State private var emailDraft = ""
     @State private var didRecordInitialSession = false
 
     var body: some View {
@@ -27,7 +26,6 @@ struct ContentView: View {
                 ScrollView {
                     VStack(alignment: .leading, spacing: 22) {
                         header
-                        accountPanel
                         recorderPanel
                         reviewPanel
 
@@ -53,7 +51,6 @@ struct ContentView: View {
                 Text(errorMessage ?? "")
             }
             .onAppear {
-                emailDraft = accountStore.email
                 guard !didRecordInitialSession else { return }
                 didRecordInitialSession = true
                 Task { await refreshAccount(recordLogin: true) }
@@ -76,54 +73,6 @@ struct ContentView: View {
             }
         }
         .frame(maxWidth: .infinity, alignment: .leading)
-    }
-
-    private var accountPanel: some View {
-        VStack(alignment: .leading, spacing: 12) {
-            HStack {
-                VStack(alignment: .leading, spacing: 4) {
-                    Text(accountStore.isRegistered ? "邮箱账号" : "Guest 模式")
-                        .font(.headline)
-                    Text(accountStore.normalizedEmail ?? "免费 10 次；注册邮箱后免费 20 次")
-                        .font(.subheadline)
-                        .foregroundStyle(.secondary)
-                }
-
-                Spacer()
-
-                if let remainingCredits {
-                    Text("\(remainingCredits) 次")
-                        .font(.headline.weight(.bold))
-                        .foregroundStyle(Color(red: 0.10, green: 0.40, blue: 0.36))
-                }
-            }
-
-            HStack(spacing: 8) {
-                TextField("输入邮箱注册", text: $emailDraft)
-                    .textInputAutocapitalization(.never)
-                    .autocorrectionDisabled()
-                    .keyboardType(.emailAddress)
-                    .textFieldStyle(.roundedBorder)
-
-                Button(accountStore.isRegistered ? "更新" : "注册") {
-                    Task { await registerEmail() }
-                }
-                .buttonStyle(.borderedProminent)
-                .tint(Color(red: 0.10, green: 0.40, blue: 0.36))
-
-                if accountStore.isRegistered {
-                    Button("Guest") {
-                        accountStore.signOutToGuest()
-                        emailDraft = ""
-                        Task { await refreshAccount(recordLogin: true) }
-                    }
-                    .buttonStyle(.bordered)
-                }
-            }
-        }
-        .padding(16)
-        .background(.white)
-        .clipShape(RoundedRectangle(cornerRadius: 8))
     }
 
     private var recorderPanel: some View {
@@ -342,17 +291,6 @@ struct ContentView: View {
             isCancelArmed = false
             errorMessage = error.localizedDescription
         }
-    }
-
-    private func registerEmail() async {
-        let email = emailDraft.trimmingCharacters(in: .whitespacesAndNewlines).lowercased()
-        guard email.range(of: #"^[^\s@]+@[^\s@]+\.[^\s@]+$"#, options: .regularExpression) != nil else {
-            errorMessage = "请输入有效的邮箱地址。"
-            return
-        }
-
-        accountStore.email = email
-        await refreshAccount(recordLogin: true)
     }
 
     private func refreshAccount(recordLogin: Bool) async {
