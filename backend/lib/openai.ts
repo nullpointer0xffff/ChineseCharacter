@@ -54,7 +54,7 @@ export async function extractTargetText(transcript: string) {
             {
               type: "input_text",
               text:
-                "你只提取孩子想学习书写的中文内容。去掉“怎么写”“我想学”“请问”等询问语。只输出 schema JSON。"
+                "你只提取孩子想学习书写的中文内容。去掉“怎么写”“我想学”“请问”等询问语，但不要删掉目标句子本身的词。例：用户说“我想去公园怎么写”，target_text 是“我想去公园”；用户说“我想学苹果怎么写”，target_text 是“苹果”。只输出 schema JSON。"
             }
           ]
         },
