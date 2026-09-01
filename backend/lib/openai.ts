@@ -5,7 +5,7 @@ if (!openAIAPIKey) {
 }
 
 export const openAIModelConfig = {
-  transcribeModel: process.env.OPENAI_TRANSCRIBE_MODEL ?? "gpt-4o-mini-transcribe",
+  transcribeModel: process.env.OPENAI_TRANSCRIBE_MODEL ?? "gpt-transcribe",
   textModel: process.env.OPENAI_TEXT_MODEL ?? "gpt-5-mini"
 };
 
@@ -13,6 +13,11 @@ export async function transcribeAudio(audio: File) {
   const form = new FormData();
   form.set("model", openAIModelConfig.transcribeModel);
   form.set("language", "zh");
+  form.append("languages[]", "zh");
+  form.append("keywords[]", "怎么写");
+  form.append("keywords[]", "我想学");
+  form.append("keywords[]", "拼音");
+  form.set("prompt", "儿童中文写字学习 App。用户通常会问：我想去公园怎么写、苹果怎么写、这个字怎么读。");
   form.set("response_format", "json");
   form.set("file", audio);
 
@@ -41,7 +46,7 @@ export async function extractTargetText(transcript: string) {
     },
     body: JSON.stringify({
       model: openAIModelConfig.textModel,
-      reasoning: { effort: "none" },
+      reasoning: { effort: "minimal" },
       max_output_tokens: 80,
       input: [
         {

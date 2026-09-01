@@ -5,7 +5,7 @@
 ## 功能
 
 - App 录音后调用 Vercel 后端，OpenAI API key 不再保存在客户端。
-- 后端调用 OpenAI `gpt-4o-mini-transcribe` 做中文语音转文字，优先降低延迟。
+- 后端调用 OpenAI `gpt-transcribe` 做中文语音转文字，优先提高当前文件转写接口的准确率。
 - 后端调用 OpenAI `gpt-5-mini` 从自然语言里提取孩子真正想写的中文。
 - 展示提取出的句子，点击单个汉字后显示拼音、读音按钮和笔顺区域。
 - 本地 `CharacterData.json` 保存汉字、拼音、读音提示；笔顺动画使用 Hanzi Writer 和本地 `hanzi-writer-data` 字库。
@@ -33,7 +33,7 @@
 OPENAI_API_KEY=sk-your-key
 POSTGRES_URL=postgres://user:password@host:5432/database
 ADMIN_TOKEN=change-this-long-random-token
-OPENAI_TRANSCRIBE_MODEL=gpt-4o-mini-transcribe
+OPENAI_TRANSCRIBE_MODEL=gpt-transcribe
 OPENAI_TEXT_MODEL=gpt-5-mini
 ```
 
