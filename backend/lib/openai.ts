@@ -12,7 +12,6 @@ export const openAIModelConfig = {
 export async function transcribeAudio(audio: File) {
   const form = new FormData();
   form.set("model", openAIModelConfig.transcribeModel);
-  form.set("language", "zh");
   form.append("languages[]", "zh");
   form.append("keywords[]", "怎么写");
   form.append("keywords[]", "我想学");
