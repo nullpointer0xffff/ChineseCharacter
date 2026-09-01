@@ -35,6 +35,20 @@ struct BackendClient {
         return try JSONDecoder().decode(BackendUsage.self, from: data)
     }
 
+    func redeemPurchase(productID: String, transactionJWS: String) async throws -> PurchaseRedemptionResult {
+        var request = URLRequest(url: baseURL.appending(path: "/api/purchases/redeem"))
+        request.httpMethod = "POST"
+        addIdentityHeaders(to: &request)
+        request.setValue("application/json", forHTTPHeaderField: "Content-Type")
+        request.httpBody = try JSONEncoder().encode(PurchaseRedemptionRequest(
+            productID: productID,
+            transactionJWS: transactionJWS
+        ))
+
+        let data = try await send(request)
+        return try JSONDecoder().decode(PurchaseRedemptionResult.self, from: data)
+    }
+
     private func addIdentityHeaders(to request: inout URLRequest) {
         request.setValue(deviceID, forHTTPHeaderField: "X-Device-Id")
         if let userEmail, !userEmail.isEmpty {
@@ -96,6 +110,18 @@ struct BackendUsage: Decodable {
     let isBlocked: Bool?
     let loginCount: Int?
     let totalUsageCount: Int?
+}
+
+struct PurchaseRedemptionRequest: Encodable {
+    let productID: String
+    let transactionJWS: String
+}
+
+struct PurchaseRedemptionResult: Decodable {
+    let productID: String
+    let transactionID: String
+    let addedCredits: Int
+    let remainingCredits: Int
 }
 
 enum BackendClientError: LocalizedError {

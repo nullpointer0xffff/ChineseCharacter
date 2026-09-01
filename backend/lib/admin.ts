@@ -11,7 +11,7 @@ export async function getAdminSummary(params: AdminSearchParams = {}) {
   const email = params.email?.trim().toLowerCase() ?? "";
   const userFilter = email ? sql`where email ilike ${`%${email}%`}` : sql``;
 
-  const [userRows, usageRows, creditRows, latencyRows, recentUsage, users] = await Promise.all([
+  const [userRows, usageRows, creditRows, latencyRows, purchaseRows, revenueRows, recentUsage, users] = await Promise.all([
     sql<{ count: string }[]>`select count(*)::text as count from app_users`,
     sql<{ count: string }[]>`select count(*)::text as count from usage_events`,
     sql<{ remaining: string }[]>`
@@ -23,6 +23,8 @@ export async function getAdminSummary(params: AdminSearchParams = {}) {
       from usage_events
       where total_duration_ms is not null
     `,
+    sql<{ count: string }[]>`select count(*)::text as count from purchase_events`,
+    sql<{ cents: string }[]>`select coalesce(sum(price_cents), 0)::text as cents from purchase_events`,
     sql<{
       id: number;
       user_id: string;
@@ -72,6 +74,8 @@ export async function getAdminSummary(params: AdminSearchParams = {}) {
     usageCount: Number(usageRows[0]?.count ?? 0),
     remainingCredits: Number(creditRows[0]?.remaining ?? 0),
     averageDurationMs: Number(latencyRows[0]?.average_duration_ms ?? 0),
+    purchaseCount: Number(purchaseRows[0]?.count ?? 0),
+    purchaseRevenueCents: Number(revenueRows[0]?.cents ?? 0),
     recentUsage: recentUsage.map((event) => ({
       id: event.id,
       userId: event.user_id,

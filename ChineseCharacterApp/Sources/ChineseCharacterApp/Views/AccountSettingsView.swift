@@ -4,6 +4,7 @@ struct AccountSettingsView: View {
     @ObservedObject var deviceIdentity: DeviceIdentityStore
     @ObservedObject var accountStore: AccountStore
 
+    @StateObject private var purchaseStore = PurchaseStore()
     @State private var emailDraft = ""
     @State private var remainingCredits: Int?
     @State private var statusMessage: String?
@@ -50,6 +51,32 @@ struct AccountSettingsView: View {
                         }
                     }
 
+                    Section("购买") {
+                        VStack(alignment: .leading, spacing: 6) {
+                            Text("100 次练习包")
+                                .font(.headline)
+                            Text("一次性购买，适合继续试用和小范围内测。")
+                                .foregroundStyle(.secondary)
+                        }
+
+                        Button {
+                            Task { await buyCredits() }
+                        } label: {
+                            HStack {
+                                Text("购买 100 次")
+                                Spacer()
+                                Text(purchaseStore.creditPack?.displayPrice ?? "$0.99")
+                            }
+                        }
+                        .disabled(isLoading || purchaseStore.isLoading || purchaseStore.isPurchasing || purchaseStore.creditPack == nil)
+
+                        if purchaseStore.creditPack == nil {
+                            Text("如果这里暂时不可购买，请先在 App Store Connect 创建商品 com.jiehu.ChineseCharacter.credits100。")
+                                .font(.footnote)
+                                .foregroundStyle(.secondary)
+                        }
+                    }
+
                     Section {
                         Text("OpenAI API key 只保存在后端，App 不会保存或显示 key。")
                             .font(.footnote)
@@ -68,6 +95,7 @@ struct AccountSettingsView: View {
             .onAppear {
                 emailDraft = accountStore.email
                 Task { await refreshAccount(recordLogin: false) }
+                Task { await purchaseStore.loadProducts() }
             }
             .alert("需要处理一下", isPresented: Binding(
                 get: { errorMessage != nil },
@@ -104,6 +132,24 @@ struct AccountSettingsView: View {
             let usage = recordLogin ? try await client.recordSession() : try await client.fetchUsage()
             remainingCredits = usage.remainingCredits
             statusMessage = accountStore.isRegistered ? "邮箱账号已同步。" : "Guest 账号已同步。"
+        } catch {
+            errorMessage = error.localizedDescription
+        }
+    }
+
+    private func buyCredits() async {
+        let client = BackendClient(
+            baseURL: AppEnvironment.backendBaseURL,
+            deviceID: deviceIdentity.deviceID,
+            userEmail: accountStore.normalizedEmail
+        )
+
+        do {
+            let result = try await purchaseStore.buyCreditPack(client: client)
+            remainingCredits = result.remainingCredits
+            statusMessage = result.addedCredits > 0 ? "购买成功，已增加 \(result.addedCredits) 次。" : "这笔购买已经兑换过，额度已同步。"
+        } catch PurchaseStoreError.cancelled {
+            statusMessage = "购买已取消。"
         } catch {
             errorMessage = error.localizedDescription
         }

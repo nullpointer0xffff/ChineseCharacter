@@ -34,6 +34,14 @@ export default async function AdminHome({
           <p>平均识别耗时</p>
           <strong>{formatMs(summary.averageDurationMs)}</strong>
         </div>
+        <div className="metric">
+          <p>购买次数</p>
+          <strong>{summary.purchaseCount}</strong>
+        </div>
+        <div className="metric">
+          <p>购买收入估算</p>
+          <strong>{formatUSD(summary.purchaseRevenueCents)}</strong>
+        </div>
       </section>
 
       <section className="panel">
@@ -155,4 +163,8 @@ function formatMs(value: number | null) {
   if (!value) return "-";
   if (value >= 1000) return `${(value / 1000).toFixed(1)}s`;
   return `${value}ms`;
+}
+
+function formatUSD(cents: number) {
+  return `$${(cents / 100).toFixed(2)}`;
 }

@@ -187,6 +187,66 @@ export async function recordUsage(params: {
   return getUserByID(params.userID);
 }
 
+export async function redeemPurchase(params: {
+  userID: string;
+  transactionID: string;
+  originalTransactionID: string | null;
+  productID: string;
+  credits: number;
+  priceCents: number;
+  currency: string;
+  environment: string | null;
+  signedTransaction: string;
+}) {
+  await ensureDatabaseSchema();
+
+  let addedCredits = 0;
+  await sql.begin(async (tx) => {
+    const inserted = await tx<{ transaction_id: string }[]>`
+      insert into purchase_events (
+        user_id,
+        transaction_id,
+        original_transaction_id,
+        product_id,
+        credits,
+        price_cents,
+        currency,
+        environment,
+        signed_transaction
+      )
+      values (
+        ${params.userID},
+        ${params.transactionID},
+        ${params.originalTransactionID},
+        ${params.productID},
+        ${params.credits},
+        ${params.priceCents},
+        ${params.currency},
+        ${params.environment},
+        ${params.signedTransaction}
+      )
+      on conflict (transaction_id) do nothing
+      returning transaction_id
+    `;
+
+    if (inserted[0]) {
+      addedCredits = params.credits;
+      await tx`
+        update app_users
+        set total_credits = total_credits + ${params.credits},
+            updated_at = now()
+        where id = ${params.userID}
+      `;
+    }
+  });
+
+  const user = await getUserByID(params.userID);
+  return {
+    addedCredits,
+    remainingCredits: user.remainingCredits
+  };
+}
+
 export async function getUserByID(id: string) {
   await ensureDatabaseSchema();
 

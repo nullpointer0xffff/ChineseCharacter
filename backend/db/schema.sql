@@ -59,6 +59,22 @@ create index if not exists app_users_email_idx on app_users(email);
 create index if not exists usage_events_user_created_idx on usage_events(user_id, created_at desc);
 create index if not exists api_request_events_user_route_created_idx on api_request_events(user_id, route, created_at desc);
 
+create table if not exists purchase_events (
+  id bigserial primary key,
+  user_id text not null references app_users(id),
+  transaction_id text not null unique,
+  original_transaction_id text,
+  product_id text not null,
+  credits integer not null,
+  price_cents integer not null,
+  currency text not null default 'USD',
+  environment text,
+  signed_transaction text not null,
+  created_at timestamptz not null default now()
+);
+
+create index if not exists purchase_events_user_created_idx on purchase_events(user_id, created_at desc);
+
 create table if not exists coupons (
   code text primary key,
   credits integer not null,

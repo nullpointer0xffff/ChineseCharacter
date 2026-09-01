@@ -10,6 +10,7 @@
 - 展示提取出的句子，点击单个汉字后显示拼音、读音按钮和笔顺区域。
 - 本地 `CharacterData.json` 保存汉字、拼音、读音提示；笔顺动画使用 Hanzi Writer 和本地 `hanzi-writer-data` 字库。
 - Vercel 后端支持每台设备默认 10 次免费使用、coupon 增加次数、基础管理后台。
+- 设置页支持 StoreKit 购买 100 次练习包，后端按 Apple transactionId 幂等加额度。
 
 ## 运行
 
@@ -47,8 +48,19 @@ backend/db/schema.sql
 - `GET /api/me`：返回当前设备剩余次数，需要 `X-Device-Id`。
 - `POST /api/voice/extract`：上传 `audio` 文件，转录并提取要学习的中文，成功后扣 1 次。
 - `POST /api/coupons/redeem`：兑换 coupon，body 为 `{ "code": "YOURCODE" }`。
+- `POST /api/purchases/redeem`：兑换 StoreKit 交易凭证，成功后给当前账号增加购买额度。
 
 管理后台首页是 `/`，如果配置了 `ADMIN_TOKEN`，浏览器会要求 Basic Auth。用户名为 `admin`，密码为 `ADMIN_TOKEN`。
+
+## App Store Connect 商品
+
+第一版只需要创建一个“消耗型”App 内购买：
+
+- Product ID: `com.jiehu.ChineseCharacter.credits100`
+- Reference Name: `100 Practice Credits`
+- Price: `US$0.99`
+- Display Name: `100 次练习包`
+- Description: `增加 100 次中文写字语音识别练习额度。`
 
 ## 数据来源建议
 
