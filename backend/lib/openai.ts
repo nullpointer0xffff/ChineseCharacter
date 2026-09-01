@@ -5,7 +5,7 @@ if (!openAIAPIKey) {
 }
 
 export const openAIModelConfig = {
-  transcribeModel: process.env.OPENAI_TRANSCRIBE_MODEL ?? "gpt-transcribe",
+  transcribeModel: "gpt-transcribe",
   textModel: process.env.OPENAI_TEXT_MODEL ?? "gpt-5-mini"
 };
 
