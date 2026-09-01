@@ -5,8 +5,8 @@
 ## 功能
 
 - App 录音后调用 Vercel 后端，OpenAI API key 不再保存在客户端。
-- 后端调用 OpenAI `gpt-4o-transcribe` 做中文语音转文字。
-- 后端调用 OpenAI `gpt-5.2` 从自然语言里提取孩子真正想写的中文。
+- 后端调用 OpenAI `gpt-4o-mini-transcribe` 做中文语音转文字，优先降低延迟。
+- 后端调用 OpenAI `gpt-5-mini` 从自然语言里提取孩子真正想写的中文。
 - 展示提取出的句子，点击单个汉字后显示拼音、读音按钮和笔顺区域。
 - 本地 `CharacterData.json` 保存汉字、拼音、读音提示；笔顺动画使用 Hanzi Writer 和本地 `hanzi-writer-data` 字库。
 - Vercel 后端支持每台设备默认 10 次免费使用、coupon 增加次数、基础管理后台。
@@ -20,7 +20,7 @@
    ```
 
 2. 打开 `ChineseCharacter.xcodeproj`。
-3. 部署 `backend/` 后，在 app 右上角设置里填入 Vercel 后端地址。
+3. 部署 `backend/`，iOS app 已默认使用 `https://chinese-character-sigma.vercel.app`。
 4. 选择 iPhone Simulator 或真机运行。
 
 ## Vercel 后端
@@ -33,8 +33,8 @@
 OPENAI_API_KEY=sk-your-key
 POSTGRES_URL=postgres://user:password@host:5432/database
 ADMIN_TOKEN=change-this-long-random-token
-OPENAI_TRANSCRIBE_MODEL=gpt-4o-transcribe
-OPENAI_TEXT_MODEL=gpt-5.2
+OPENAI_TRANSCRIBE_MODEL=gpt-4o-mini-transcribe
+OPENAI_TEXT_MODEL=gpt-5-mini
 ```
 
 数据库使用 Postgres。上线前先在数据库里执行：

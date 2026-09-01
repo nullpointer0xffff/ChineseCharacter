@@ -30,6 +30,10 @@ export default async function AdminHome({
           <p>剩余额度合计</p>
           <strong>{summary.remainingCredits}</strong>
         </div>
+        <div className="metric">
+          <p>平均识别耗时</p>
+          <strong>{formatMs(summary.averageDurationMs)}</strong>
+        </div>
       </section>
 
       <section className="panel">
@@ -113,6 +117,8 @@ export default async function AdminHome({
               <th>用户</th>
               <th>转录</th>
               <th>提取文字</th>
+              <th>耗时</th>
+              <th>模型</th>
             </tr>
           </thead>
           <tbody>
@@ -122,6 +128,15 @@ export default async function AdminHome({
                 <td className="code">{event.userId}</td>
                 <td>{event.transcript}</td>
                 <td>{event.targetText}</td>
+                <td>
+                  <strong>{formatMs(event.totalDurationMs)}</strong>
+                  <div className="muted">转写 {formatMs(event.transcribeDurationMs)}</div>
+                  <div className="muted">提取 {formatMs(event.extractDurationMs)}</div>
+                </td>
+                <td>
+                  <div className="code">{event.transcribeModel ?? "-"}</div>
+                  <div className="code muted">{event.textModel ?? "-"}</div>
+                </td>
               </tr>
             ))}
           </tbody>
@@ -134,4 +149,10 @@ export default async function AdminHome({
 function formatDate(value: string | null) {
   if (!value) return "-";
   return new Date(value).toLocaleString("zh-CN");
+}
+
+function formatMs(value: number | null) {
+  if (!value) return "-";
+  if (value >= 1000) return `${(value / 1000).toFixed(1)}s`;
+  return `${value}ms`;
 }

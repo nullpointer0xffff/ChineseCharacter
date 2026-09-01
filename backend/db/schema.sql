@@ -34,8 +34,19 @@ create table if not exists usage_events (
   cost integer not null,
   transcript text,
   target_text text,
+  transcribe_duration_ms integer,
+  extract_duration_ms integer,
+  total_duration_ms integer,
+  transcribe_model text,
+  text_model text,
   created_at timestamptz not null default now()
 );
+
+alter table usage_events add column if not exists transcribe_duration_ms integer;
+alter table usage_events add column if not exists extract_duration_ms integer;
+alter table usage_events add column if not exists total_duration_ms integer;
+alter table usage_events add column if not exists transcribe_model text;
+alter table usage_events add column if not exists text_model text;
 
 create table if not exists api_request_events (
   id bigserial primary key,

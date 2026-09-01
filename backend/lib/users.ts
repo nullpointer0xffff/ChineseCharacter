@@ -139,7 +139,14 @@ export async function recordUsage(params: {
   transcript: string;
   targetText: string;
   cost: number;
+  transcribeDurationMs?: number;
+  extractDurationMs?: number;
+  totalDurationMs?: number;
+  transcribeModel?: string;
+  textModel?: string;
 }) {
+  await ensureDatabaseSchema();
+
   await sql.begin(async (tx) => {
     await tx`
       update app_users
@@ -150,8 +157,30 @@ export async function recordUsage(params: {
       where id = ${params.userID}
     `;
     await tx`
-      insert into usage_events (user_id, action, cost, transcript, target_text)
-      values (${params.userID}, 'voice_extract', ${params.cost}, ${params.transcript}, ${params.targetText})
+      insert into usage_events (
+        user_id,
+        action,
+        cost,
+        transcript,
+        target_text,
+        transcribe_duration_ms,
+        extract_duration_ms,
+        total_duration_ms,
+        transcribe_model,
+        text_model
+      )
+      values (
+        ${params.userID},
+        'voice_extract',
+        ${params.cost},
+        ${params.transcript},
+        ${params.targetText},
+        ${params.transcribeDurationMs ?? null},
+        ${params.extractDurationMs ?? null},
+        ${params.totalDurationMs ?? null},
+        ${params.transcribeModel ?? null},
+        ${params.textModel ?? null}
+      )
     `;
   });
 

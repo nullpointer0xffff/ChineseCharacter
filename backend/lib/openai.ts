@@ -4,12 +4,14 @@ if (!openAIAPIKey) {
   throw new Error("OPENAI_API_KEY is not configured.");
 }
 
-const transcribeModel = process.env.OPENAI_TRANSCRIBE_MODEL ?? "gpt-4o-transcribe";
-const textModel = process.env.OPENAI_TEXT_MODEL ?? "gpt-5.2";
+export const openAIModelConfig = {
+  transcribeModel: process.env.OPENAI_TRANSCRIBE_MODEL ?? "gpt-4o-mini-transcribe",
+  textModel: process.env.OPENAI_TEXT_MODEL ?? "gpt-5-mini"
+};
 
 export async function transcribeAudio(audio: File) {
   const form = new FormData();
-  form.set("model", transcribeModel);
+  form.set("model", openAIModelConfig.transcribeModel);
   form.set("language", "zh");
   form.set("response_format", "json");
   form.set("file", audio);
@@ -38,8 +40,9 @@ export async function extractTargetText(transcript: string) {
       "Content-Type": "application/json"
     },
     body: JSON.stringify({
-      model: textModel,
+      model: openAIModelConfig.textModel,
       reasoning: { effort: "none" },
+      max_output_tokens: 80,
       input: [
         {
           role: "system",
@@ -47,7 +50,7 @@ export async function extractTargetText(transcript: string) {
             {
               type: "input_text",
               text:
-                "你是儿童中文书写 app 的文本提取器。只提取用户真正想学习书写的中文内容，不要包含“怎么写”“我想学”“请问”等询问语。只输出符合 schema 的 JSON。"
+                "你只提取孩子想学习书写的中文内容。去掉“怎么写”“我想学”“请问”等询问语。只输出 schema JSON。"
             }
           ]
         },
